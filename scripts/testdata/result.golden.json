@@ -1,0 +1,12 @@
+{
+  "scenario": "boot",
+  "pass": true,
+  "durationMs": 38210,
+  "chained": false,
+  "checks": [
+    {"name": "mod loaded", "pass": true, "detail": "hoardkeeper"}
+  ],
+  "numbers": {},
+  "screenshots": ["boot-joined.png"],
+  "error": null
+}

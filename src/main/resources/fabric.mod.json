@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "hoardkeeper",
+  "version": "${version}",
+  "name": "Hoardkeeper",
+  "description": "Knows what is in your chests: scans the containers around you without a screen, finds any item with one key, shows counts in tooltips and a peek card, and puts your inventory away in singleplayer.",
+  "authors": ["paraf0x"],
+  "license": "MIT",
+  "contact": {
+    "homepage": "https://modrinth.com/mod/hoardkeeper",
+    "sources": "https://github.com/paraf0x/hoardkeeper",
+    "issues": "https://github.com/paraf0x/hoardkeeper/issues"
+  },
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.hoardkeeper.HoardkeeperMod"
+    ]
+  },
+  "accessWidener": "hoardkeeper.accesswidener",
+  "mixins": [
+    "hoardkeeper.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "java": ">=25",
+    "minecraft": "~26.3"
+  },
+  "breaks": {
+    "storage-scanner": "*"
+  }
+}

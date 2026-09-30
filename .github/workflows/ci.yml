@@ -1,0 +1,94 @@
+# Build and test on every push, so a change can be checked without a local JDK 25 or Minecraft.
+# The client gametests run under a virtual display (xvfb) with software OpenGL; see
+# README "Test harness for developers" for what they are. scripts/gametest.py is macOS-only
+# (lsappinfo, Homebrew JDK), so the gametest job calls Gradle directly with the chained run.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Not cancelled on a newer push: the gametests take minutes, and a burst of pushes would
+  # otherwise never let one finish.
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and test
+        run: ./gradlew build --console=plain
+      - name: The jar is Hoardkeeper and talks to no one
+        run: |
+          v=$(sed -n 's/^mod_version=//p' gradle.properties)
+          jar="build/libs/hoardkeeper-$v.jar"
+          unzip -p "$jar" fabric.mod.json | python3 -c "import json,sys; j=json.load(sys.stdin); \
+            assert j['id']=='hoardkeeper', j['id']; assert 'storage-scanner' in j.get('breaks', {}), j.get('breaks')"
+          # No outbound network code: the one-grep promise of the README.
+          ! unzip -p "$jar" '*.class' | grep -a -q -E "java/net/http/HttpClient|java/net/HttpURLConnection|java/net/Socket" \
+            || { echo "$jar contains network code"; exit 1; }
+          echo "$jar is what it should be"
+      - name: Test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test/
+          if-no-files-found: ignore
+      - name: Jar
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jar
+          path: build/libs/*.jar
+
+  gametest:
+    name: Client gametests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Virtual display and software rendering
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb mesa-utils libgl1-mesa-dri mesa-vulkan-drivers
+      - name: Run every scenario (chained)
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          xvfb-run -a -s "-screen 0 1280x720x24" \
+            ./gradlew runClientGameTest -Pscenario=all -PrunId=ci --console=plain
+      - name: Results
+        if: always()
+        run: |
+          for f in build/run/clientGameTest/gametest/*.json; do
+            [ -f "$f" ] || continue
+            python3 -c "import json,sys; r=json.load(open(sys.argv[1])); print(sys.argv[1].split('/')[-1], 'PASS' if r.get('pass') else 'FAIL', r.get('numbers') or '', r.get('error') or '')" "$f"
+          done
+      - name: Upload results, logs and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gametest
+          path: |
+            build/run/clientGameTest/gametest/
+            build/run/clientGameTest/logs/
+            build/run/clientGameTest/screenshots/
+            build/run/clientGameTest/crash-reports/
+          if-no-files-found: ignore

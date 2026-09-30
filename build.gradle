@@ -1,0 +1,126 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'java'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+}
+
+loom {
+    // Widens exactly one field: Minecraft.rightClickDelay. See the .accesswidener for why.
+    accessWidenerPath = file("src/main/resources/hoardkeeper.accesswidener")
+
+    runs {
+        client {
+            // A forgotten dev client used to grow to a quarter of the machine's RAM.
+            vmArgs "-Xmx3G"
+            // -PquickPlay: join the local runServer on launch, for manual play-testing.
+            if (project.hasProperty("quickPlay")) {
+                programArgs "--quickPlayMultiplayer", "localhost:25565"
+            }
+        }
+        server {
+            // Its own directory: the client's options.txt and the server's world used to share run/.
+            runDir "run/server"
+            vmArgs "-Xmx1G"
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Client gametests: ./gradlew runClientGameTest -Pscenario=all (or one scenario). Never from `build`.
+// ---------------------------------------------------------------------------------------------
+fabricApi {
+    configureTests {
+        createSourceSet = true            // sourceSets.gametest, run config "clientGameTest"
+        modId = "hoardkeeper-gametest"
+        enableGameTests = false           // no server-side gametests
+        enableClientGameTests = true
+        eula = true
+        clearRunDirectory = true          // build/run/clientGameTest is wiped before each run
+        username = "Tester"
+    }
+}
+
+loom.runs.clientGameTest {
+    // Measured 2026-09-09: peak RSS 925–1345 MB per scenario (whole process); 2G heap leaves margin.
+    vmArgs "-Xmx2G", "-XX:+ExitOnOutOfMemoryError"
+    vmArgs "-Dhoardkeeper.gametest.scenario=${project.findProperty('scenario') ?: 'all'}"
+    // The marker the runner kills by. It is on the JVM's own command line, so `pgrep -f` finds
+    // the client even when it is a child of the Gradle daemon and not of the gradlew process.
+    vmArgs "-Dhoardkeeper.gametest.run=${project.findProperty('runId') ?: 'manual'}"
+    programArgs "--width", "1280", "--height", "720"
+}
+
+dependencies {
+    // configureTests does not add this itself. fabricApi.module reads the module's version off
+    // the fabric-api POM (6.0.0+515ac5339e for 0.156.0+26.2). Plain implementation-style, like
+    // fabric-api itself above: 26.x is unobfuscated and nothing is remapped.
+    gametestImplementation fabricApi.module("fabric-client-gametest-api-v1", project.fabric_version)
+}
+
+// A build must never open a Minecraft window. Two guards on purpose: the run task is skipped
+// unless a scenario is named, and `check` is cut loose from it in case Loom wired it in.
+tasks.configureEach { task ->
+    if (task.name == "runClientGameTest") {
+        task.onlyIf("a scenario was named with -Pscenario") { project.hasProperty("scenario") }
+    }
+}
+def dependencyName(Object dep) {
+    if (dep instanceof org.gradle.api.Task) return dep.name
+    if (dep instanceof org.gradle.api.tasks.TaskProvider) return dep.name
+    return dep.toString()
+}
+afterEvaluate {
+    tasks.named("check").configure { t ->
+        t.setDependsOn(t.dependsOn.findAll { dep -> dependencyName(dep) != "runClientGameTest" })
+    }
+}
+
+dependencies {
+    // Minecraft 26.x ships unobfuscated — no mappings dependency needed.
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    testImplementation platform("org.junit:junit-bom:5.11.4")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+test {
+    useJUnitPlatform()
+}
+
+processResources {
+    inputs.property "version", project.version
+
+    filesMatching("fabric.mod.json") {
+        expand "version": project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+    it.options.release = 25
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.base.archivesName.get()}" }
+    }
+}

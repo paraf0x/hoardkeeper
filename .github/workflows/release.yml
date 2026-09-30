@@ -1,0 +1,92 @@
+# Publishes a release when a tag v<version>[-<name>.<n>] is pushed: builds the jar, checks the
+# TL;DR, creates the GitHub release, then uploads the same jar to Modrinth (docs/RELEASING.md).
+# A tag with a suffix (v1.0.0-beta.1) becomes a pre-release on GitHub and a beta on Modrinth.
+# Needs .github/release-notes/<tag>.md (the body) and .github/release-notes/<tag>.title (one line,
+# the part after "Hoardkeeper <version> — ").
+#
+# Where a tag cannot be pushed, writing the tag name into .github/publish and pushing that does the
+# same: the workflow creates the tag on the pushed commit along with the release. Running it again
+# for a tag that is already released only retries what is missing — the Modrinth upload, say.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+    # A branch push publishes only through .github/publish; paths never filter a tag push.
+    branches: ['**']
+    paths: ['.github/publish']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Which tag
+        id: which
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then tag="$GITHUB_REF_NAME"; else tag=$(head -n1 .github/publish | tr -d '[:space:]'); fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            echo "$tag already has a GitHub release"; echo "released=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Tag, version and notes agree
+        id: meta
+        run: |
+          tag="${{ steps.which.outputs.tag }}"
+          version="${tag#v}"; version="${version%%-*}"
+          mod_version=$(sed -n 's/^mod_version=//p' gradle.properties)
+          if [ "$version" != "$mod_version" ]; then
+            echo "tag $tag is version $version but gradle.properties says $mod_version"; exit 1
+          fi
+          test -f ".github/release-notes/$tag.md" || { echo "missing .github/release-notes/$tag.md"; exit 1; }
+          test -f ".github/release-notes/$tag.title" || { echo "missing .github/release-notes/$tag.title"; exit 1; }
+          python3 scripts/check_tldr.py ".github/release-notes/$tag.md"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "title=Hoardkeeper $version — $(head -n1 .github/release-notes/$tag.title)" >> "$GITHUB_OUTPUT"
+          if [ "$tag" != "v$version" ]; then
+            echo "pre=--prerelease" >> "$GITHUB_OUTPUT"; echo "channel=beta" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=release" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build
+        run: ./gradlew build --console=plain
+      - name: GitHub release
+        if: steps.which.outputs.released != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.which.outputs.tag }}"
+          gh release create "$tag" \
+            "build/libs/hoardkeeper-${{ steps.meta.outputs.version }}.jar" \
+            "build/libs/hoardkeeper-${{ steps.meta.outputs.version }}-sources.jar" \
+            --title "${{ steps.meta.outputs.title }}" \
+            --notes-file ".github/release-notes/$tag.md" \
+            --target "$GITHUB_SHA" ${{ steps.meta.outputs.pre }}
+      - name: Modrinth
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_PROJECT: ${{ vars.MODRINTH_PROJECT || 'hoardkeeper' }}
+        run: |
+          if [ -z "$MODRINTH_TOKEN" ]; then
+            echo "::warning::MODRINTH_TOKEN is not set; skipping the Modrinth upload (docs/RELEASING.md)"
+            exit 0
+          fi
+          tag="${{ steps.which.outputs.tag }}"
+          python3 scripts/modrinth_publish.py \
+            --project "$MODRINTH_PROJECT" \
+            --version-number "${tag#v}" \
+            --name "${{ steps.meta.outputs.title }}" \
+            --channel "${{ steps.meta.outputs.channel }}" \
+            --changelog ".github/release-notes/$tag.md" \
+            --jar "build/libs/hoardkeeper-${{ steps.meta.outputs.version }}.jar"

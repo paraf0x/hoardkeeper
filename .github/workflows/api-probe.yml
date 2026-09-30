@@ -1,0 +1,47 @@
+# Prints the public API of Minecraft / Fabric classes into the job log, for writing code against
+# a version whose sources are not at hand. Runs when .github/api-probe.txt changes (one fully
+# qualified class name per line), or by hand with the class names as input.
+name: API probe
+
+on:
+  push:
+    paths: ['.github/api-probe.txt']
+  workflow_dispatch:
+    inputs:
+      classes:
+        description: Fully qualified class names, space-separated
+        required: false
+        default: ''
+      filter:
+        description: Optional extended regex applied to javap output
+        required: false
+        default: ''
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Resolve the game and its libraries
+        run: ./gradlew compileJava --console=plain -q
+      - name: javap
+        env:
+          CLASSES: ${{ inputs.classes }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          CP=$(find ~/.gradle/caches .gradle -name '*.jar' \( -path '*minecraft*' -o -path '*fabric*' \) 2>/dev/null | tr '\n' ':')
+          [ -n "$CLASSES" ] || CLASSES=$(grep -v '^#' .github/api-probe.txt | tr '\n' ' ')
+          for c in $CLASSES; do
+            echo "===== $c"
+            if [ -n "$FILTER" ]; then
+              javap -cp "$CP" -public "$c" 2>&1 | grep -E "$FILTER|^(public|class|interface|final)" || true
+            else
+              javap -cp "$CP" -public "$c" 2>&1 || true
+            fi
+          done

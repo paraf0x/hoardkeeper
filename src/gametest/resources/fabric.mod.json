@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "hoardkeeper-gametest",
+  "version": "1.0.0",
+  "name": "Hoardkeeper Gametests",
+  "description": "Client gametests for hoardkeeper. Never shipped.",
+  "environment": "client",
+  "entrypoints": {
+    "preLaunch": ["dev.hoardkeeper.gametest.ConfigGuard"],
+    "client": ["dev.hoardkeeper.gametest.GameTestClientInit"],
+    "fabric-client-gametest": ["dev.hoardkeeper.gametest.GameTestEntry"]
+  },
+  "mixins": ["hoardkeeper-gametest.mixins.json"],
+  "depends": {
+    "hoardkeeper": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

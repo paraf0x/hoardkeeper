@@ -1,0 +1,13 @@
+accessWidener v2 official
+
+# Minecraft.rightClickDelay (MC 26.2) — read by ScanController.onOpenScreen to tell OUR silent
+# container open apart from one the PLAYER just triggered.
+#
+# Re-verified against the 26.2 jar with javap when the mod was retargeted from 26.1.2; the field and
+# every access to it are byte-for-byte the same shape in both versions. Minecraft.class is the ONLY
+# class in the whole client tree that references this field. Minecraft.startUseItem() writes a
+# constant 4 into it (iconst_4 / putfield, before the isHandsBusy early-return) and is reachable
+# only from handleKeybinds(), i.e. only from real player input; Minecraft.tick() decrements it;
+# handleKeybinds() reads it. Our path, MultiPlayerGameMode.useItemOn(...), cannot touch it. So
+# "> 0" means "the player right-clicked within the last 4 ticks" and nothing else.
+accessible field net/minecraft/client/Minecraft rightClickDelay I
