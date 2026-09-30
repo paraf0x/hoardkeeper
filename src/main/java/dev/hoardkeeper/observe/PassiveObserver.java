@@ -112,11 +112,11 @@ public final class PassiveObserver {
 
     /**
      * One log's identity: where it lives, and what a row of it belongs to. Package-private, not
-     * private: {@link ObservationUploader#onClientTick} reads it through {@link #currentLog} so the
+     * private: {@code ObservationUploader#onClientTick} reads it through {@link #currentLog} so the
      * upload's tick check names the same log this observer would append the next row to, rather
      * than re-deriving that identity a second time.
      */
-    record Log(Path dir, String server, String realm, String dimension) {
+    public record Log(Path dir, String server, String realm, String dimension) {
     }
 
     /** A screen that is expected to become an observation when it goes away. */
@@ -230,7 +230,7 @@ public final class PassiveObserver {
      * no log to read yet (no level, so no realm and no dimension to name one).
      *
      * <p><b>Client thread only, and deliberately not free.</b> It flushes the writer and then parses
-     * the row file, which is what {@link ObservationUploader#onClientTick} does before it computes
+     * the row file, which is what {@code ObservationUploader#onClientTick} does before it computes
      * the very same numbers — so the "N pending upload" here is the count that upload would
      * actually send, not an estimate that drifts from it. That cost is fine on a path a player
      * reaches by typing a command, and would not be on the tick path: the flush is why a chest
@@ -730,14 +730,14 @@ public final class PassiveObserver {
 
     /**
      * The store for {@code log}, created on first use — see {@link #stores}. A pure lookup with no
-     * side effects: {@link ObservationUploader#onClientTick} calls this too, every tick, purely to
+     * side effects: {@code ObservationUploader#onClientTick} calls this too, every tick, purely to
      * read a log's watermark, and must not have that merely-looking tick close anything.
      *
-     * <p>Package-private, not private: {@link ObservationUploader} reaches the exact same store
+     * <p>Public for an add-on (split spec §6): {@code ObservationUploader} reaches the exact same store
      * instance this class appends through, for the same log-identity reason {@link #currentLog} is
      * package-private.
      */
-    ObservationLogStore storeFor(Log log) {
+    public ObservationLogStore storeFor(Log log) {
         return stores.computeIfAbsent(log,
                 l -> new ObservationLogStore(l.dir(), l.server(), l.realm(), l.dimension()));
     }
@@ -772,11 +772,11 @@ public final class PassiveObserver {
      * dimension the player is standing in. Keyed by realm on purpose — the scan directories are
      * not, and a new layout should not inherit that.
      *
-     * <p>Package-private, not private: {@link ObservationUploader}'s tick check calls this so it
+     * <p>Public for an add-on (split spec §6): {@code ObservationUploader}'s tick check calls this so it
      * names the current log exactly as this class would, without a second copy of the resolution
      * logic — see {@link Log}'s javadoc.
      */
-    static Log currentLog(Minecraft mc) {
+    public static Log currentLog(Minecraft mc) {
         ClientLevel level = mc.level;
         if (level == null) {
             return null;

@@ -496,7 +496,7 @@ public final class ObservationLogStore {
      * {@code ObservationUploader} reads it, to compare against the generation it last confirmed
      * clean.
      */
-    long currentGeneration() {
+    public long currentGeneration() {
         return dirtyGeneration;
     }
 
@@ -505,7 +505,7 @@ public final class ObservationLogStore {
      * {@link #compact} calls this instead of inventing a second scheme — spec §4.4's whole point is
      * that the two must never disagree about how many rows the file has.
      */
-    boolean isUploadInFlight() {
+    public boolean isUploadInFlight() {
         return uploadInFlight.get();
     }
 
@@ -514,7 +514,7 @@ public final class ObservationLogStore {
      * another attempt already holds it — {@code ObservationUploader.onClientTick} bails out on that,
      * rather than starting a second read-through-write span for the same log.
      */
-    boolean tryMarkUploadInFlight() {
+    public boolean tryMarkUploadInFlight() {
         return uploadInFlight.compareAndSet(false, true);
     }
 
@@ -524,7 +524,7 @@ public final class ObservationLogStore {
      * which is why the flag is an {@link AtomicBoolean} rather than a plain field: this call and
      * {@link #tryMarkUploadInFlight} run on different threads.
      */
-    void clearUploadInFlight() {
+    public void clearUploadInFlight() {
         uploadInFlight.set(false);
     }
 
@@ -538,7 +538,7 @@ public final class ObservationLogStore {
      * log at once would be a lost update, and a task that throws must not stop the next one — so
      * each is wrapped.
      *
-     * <p>Package-private, not private: {@code ObservationUploader} calls this directly to chain an
+     * <p>Public for an add-on (split spec §6): {@code ObservationUploader} calls this directly to chain an
      * upload's entire read-through-write span onto this exact maintenance sequence, the same one
      * {@link #compact} runs on. That is what makes the two structurally unable to overlap for this
      * log — whichever was submitted first simply runs to completion before the other starts —
@@ -546,7 +546,7 @@ public final class ObservationLogStore {
      * in-flight flag stays as a second, independent guard rather than being removed now that it is
      * redundant for this one call site; nothing about it assumes this stays the only caller.
      */
-    CompletableFuture<Void> submit(Runnable task) {
+    public CompletableFuture<Void> submit(Runnable task) {
         maintenance = maintenance
                 .handle((ignored, error) -> null)
                 .thenRunAsync(() -> {

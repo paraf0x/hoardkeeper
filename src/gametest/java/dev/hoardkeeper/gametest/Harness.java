@@ -277,9 +277,6 @@ public final class Harness {
     void close() {
         Throwable closeError = null;
         try {
-            if (stub != null) {
-                stub.close();
-            }
             if (connection != null) {
                 connection.close();
             }
