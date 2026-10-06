@@ -177,7 +177,7 @@ class ScanTextTest {
 
         assertTrue(joined.contains("/hoard start chunks <n>"), joined);
         assertTrue(joined.contains("/hoard start <radius>"), joined);
-        assertFalse(joined.contains("upload"), "the core has no uploads; the TBI add-on adds its own lines");
+        assertFalse(joined.contains("upload"), "the core has no uploads; an upload add-on adds its own lines");
     }
 
     @Test

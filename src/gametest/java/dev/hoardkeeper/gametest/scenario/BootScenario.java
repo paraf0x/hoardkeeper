@@ -16,8 +16,9 @@ public final class BootScenario implements Scenario {
     @Override
     public void run(Harness h) {
         h.check("mod loaded", FabricLoader.getInstance().isModLoaded("hoardkeeper"), "hoardkeeper");
-        h.check("no add-on in the core's own run", !FabricLoader.getInstance().isModLoaded("hoardkeeper-tbi"),
-                "hoardkeeper-tbi");
+        h.check("no add-on in the core's own run",
+                FabricLoader.getInstance().getEntrypointContainers("hoardkeeper:addon", Object.class).isEmpty(),
+                "hoardkeeper:addon");
         h.check("gametest api loaded",
                 FabricLoader.getInstance().isModLoaded("fabric-client-gametest-api-v1"), "6.x");
         h.check("config lets the scanner act on the test server",

@@ -13,7 +13,7 @@ import java.nio.file.Path;
  *
  * <ul>
  *   <li>{@code config/storage-scanner.json} is <em>copied</em> to {@code config/hoardkeeper.json}
- *       when the latter does not exist. Copied, not moved: the hoardkeeper-tbi add-on reads its own
+ *       when the latter does not exist. Copied, not moved: an add-on may read its own
  *       old fields from the same file. Keys Hoardkeeper does not know are ignored on load.</li>
  *   <li>{@code <game dir>/storage-scanner/} (sessions, the measured map, the observation log) is
  *       <em>moved</em> to {@code <game dir>/hoardkeeper/} when the latter does not exist.</li>

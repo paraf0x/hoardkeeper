@@ -126,8 +126,8 @@ public final class HoardCommand {
                                 .executes(ctx -> setReminder(ctx, true)))
                         .then(ClientCommands.literal("off")
                                 .executes(ctx -> setReminder(ctx, false))));
-        // Add-ons hang their own subcommands off the same root (spec 2026-09-30 §6) -- the TBI
-        // bridge adds `upload` and `site` here; the core names neither.
+        // Add-ons hang their own subcommands off the same root (spec 2026-09-30 §6) -- an upload
+        // add-on adds `upload` and `site` here; the core names neither.
         Addons.registerCommands(root);
         dispatcher.register(root);
     }
