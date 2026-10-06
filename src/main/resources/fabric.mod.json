@@ -6,6 +6,7 @@
   "description": "Knows what is in your chests: scans the containers around you without a screen, finds any item with one key, shows counts in tooltips and a peek card, and puts your inventory away in singleplayer.",
   "authors": ["paraf0x"],
   "license": "MIT",
+  "icon": "assets/hoardkeeper/icon.png",
   "contact": {
     "homepage": "https://modrinth.com/mod/hoardkeeper",
     "sources": "https://github.com/paraf0x/hoardkeeper",
