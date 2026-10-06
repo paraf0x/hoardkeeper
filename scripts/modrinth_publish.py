@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Uploads one jar to Modrinth as a version of PROJECT, the way paraf0x's other mods publish: Fabric,
-the game version from gradle.properties, Fabric API required, featured. A version number the project
+the game version from gradle.properties, Fabric API required, client only, featured when it is a
+release. A version number the project
 already has is left alone (exit 0), so the release workflow can retry only what is missing.
 Reads the token from MODRINTH_TOKEN. --dry-run prints the payload and touches nothing.
 Usage: scripts/modrinth_publish.py --project P --version-number V --name N --channel release|beta
@@ -118,6 +119,13 @@ def main():
     if not 200 <= status < 300:
         sys.exit(f"Modrinth answered {status}: {resp.decode(errors='replace')}")
     version = json.loads(resp)
+    # The v2 upload cannot say which side the mod runs on; without this the project page reads
+    # "unknown" for client and server.
+    status, resp = request("PATCH", f"https://api.modrinth.com/v3/version/{version['id']}", token,
+                           json.dumps({"environment": "client_only"}).encode(), "application/json")
+    if not 200 <= status < 300:
+        sys.exit(f"version {version['id']} uploaded, but setting its environment failed with {status}: "
+                 f"{resp.decode(errors='replace')}")
     print(f"published {args.project} {version['version_number']} ({version['version_type']}), id {version['id']}")
 
 
