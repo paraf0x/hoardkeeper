@@ -106,6 +106,9 @@ public final class Harness {
         props.setProperty("view-distance", "6");
         props.setProperty("simulation-distance", "6");
         props.setProperty("gamemode", "creative");
+        // Not 25565: a server played by hand on the same machine holds it, and the test server would
+        // fail to bind and time out in createServer.
+        props.setProperty("server-port", "25566");
         server = ctx.worldBuilder().createServer(props);
         connection = server.connect();
         serverCommand("op " + PLAYER);
